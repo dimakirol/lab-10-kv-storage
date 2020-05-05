@@ -1,0 +1,12 @@
+"C:\Program Files\JetBrains\CLion 2019.3.4\bin\cmake\win\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - MinGW Makefiles" D:\Kirill\VUZ\4_Semestr\C++\group\lab-10-kv-storage
+CMake Error at CMakeLists.txt:14 (include):
+  include could not find load file:
+
+    tools/gate/cmake/HunterGate.cmake
+
+
+CMake Error at CMakeLists.txt:16 (HunterGate):
+  Unknown CMake command "HunterGate".
+
+
+-- Configuring incomplete, errors occurred!
