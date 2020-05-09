@@ -3,11 +3,18 @@
 #include <header.hpp>
 
 struct Params{
-    Params(std::string _input, std::string _log_level;
-           uint32_t _log_level){
-        input = _input
+	Params(){
+		input = "";
+		log_level = "";
+		threads = default_threads;
+
+		out = "dbhr-storage.db";
+	}
+    Params(std::string _input, std::string _log_level,
+           uint32_t _threads){
+        input = _input;
         log_level = _log_level;
-        threads = _log_level;
+        threads = _threads;
 
         if (input.find("/") != std::string::npos){
             out.assign(input, 0, input.rfind("/") + 1);
@@ -21,27 +28,31 @@ struct Params{
 } typedef Params;
 
 struct hash_this{
-    _download_this(){
-        key = std::string("");
-        value = std::string("/");
+	hash_this(){
+		cf_name = std::string("");
+		key = std::string("");
+        value = std::string("");
     }
-    _download_this(std::string _key, std::string _value){
+	hash_this(std::string _cf_name, std::string _key, std::string _value){
         key = _key;
         value = _value;
     }
+	std::string cf_name;
     std::string key;
     std::string value;
 } typedef hash_this;
 
 struct print_this{
-    _parse_this(){
+	print_this(){
         key = std::string("");
         hash = nullptr;
     }
-    _parse_this(std::string _key, std::string _hash){
+	print_this(std::string _cf_name, std::string _key, std::string* _hash){
+		cf_name = _cf_name;
         key = _key;
         hash = _hash;
     }
+	std::string cf_name;
     std::string key;
     std::string* hash;
 } typedef print_this;
@@ -57,8 +68,9 @@ public:
         download_finished = false;
         hashing_finished = false;
 
-        processing_queue = new std::queue <parse_this>;
-        output_queue = new std::queue <std::string>;
+        processing_queue = new std::queue <hash_this>;
+        output_queue = new std::queue <print_this>;
+//        init();
     }
     ~BD_Hasher(){
         delete processing_queue;
@@ -66,27 +78,162 @@ public:
     }
 
 private:
-    void init()
-    {
-        boost::log::register_simple_formatter_factory
-                <boost::log::trivial::severity_level, char>("Severity");
-        logging::add_file_log
-                (
-                        keywords::file_name = LOG_FILE_NAME,
-                        keywords::rotation_size = ROTATION_SIZE_A *
-                                                  ROTATION_SIZE_B * ROTATION_SIZE_H,
-                        keywords::time_based_rotation =
-                                sinks::file::rotation_at_time_point(0, 0, 0),
-                        keywords::format =
-                                "[%TimeStamp%][%ThreadID%][%Severiti%]: %Message%");
-        logging::add_console_log
-                (
-                        std::cout,
-                        logging::keywords::format =
-                                "[%TimeStamp%] [%ThreadID%] [%Severity%]: %Message%");
-        logging::add_common_attributes();
+	void log_it(std::stringstream &ss){
+		BOOST_LOG_TRIVIAL(trace) << "kuku";
+    	if (log_level == "debug"){
+    		BOOST_LOG_TRIVIAL(debug) << "kuku";
+    	} else if (log_level == "info"){
+		    BOOST_LOG_TRIVIAL(info) << ss.str();
+    	} else if (log_level == "warning"){
+		    BOOST_LOG_TRIVIAL(warning) << ss.str();
+		} else if (log_level == "error"){
+		    BOOST_LOG_TRIVIAL(error) << ss.str();
+		} else if (log_level == "fatal"){
+		    BOOST_LOG_TRIVIAL(fatal) << ss.str();
+		} else if (log_level == "trace"){
+		    BOOST_LOG_TRIVIAL(trace) << ss.str();
+		}
+
     }
+//    void init()
+//    {
+//	    boost::log::register_simple_formatter_factory
+//			    <boost::log::trivial::severity_level, char>("Severity");
+//	    logging::add_file_log
+//			    (
+//					    logging::keywords::file_name = "log_%N.log",
+//					    logging::keywords::rotation_size = SIZE_FILE,
+//					    logging::keywords::time_based_rotation =
+//							    boost::log::sinks::file::rotation_at_time_point{0,
+//							                                                    0, 0},
+//					    logging::keywords::format =
+//							    "[%TimeStamp%] [%Severity%] %Message%");
+//
+//	    add_console_log(
+//			    std::cout,
+//			    logging::keywords::format
+//					    = "[%TimeStamp%] [%Severity%]: %Message%");
+//	    logging::add_common_attributes();
+//    }
     void downloading_notes(ctpl::thread_pool *network_threads){
+
+    	//_---------------------------------------------CODE ROCKSDB_______________------------------
+
+/*
+// Created by kirill on 09.05.2020.
+//
+// Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
+#include <iostream>
+
+#include <cstdio>
+#include <string>
+#include <vector>
+
+#include <rocksdb/db.h>
+#include <rocksdb/slice.h>
+#include <rocksdb/options.h>
+
+		using namespace rocksdb;
+
+		std::string kDBPath = "rocksdb_column_families_example";
+
+		int main() {
+			// open DB
+//	Options options;
+//	options.create_if_missing = true;
+			DB* db;
+			Status s;// = DB::Open(options, kDBPath, &db);
+//	assert(s.ok());
+//
+//	// create column family
+//	ColumnFamilyHandle* cf1;
+//	s = db->CreateColumnFamily(ColumnFamilyOptions(), "cf_1", &cf1);
+//	assert(s.ok());
+//	ColumnFamilyHandle* cf2;
+//	s = db->CreateColumnFamily(ColumnFamilyOptions(), "cf_2", &cf2);
+//	assert(s.ok());
+//
+//	// close DB
+//	s = db->DestroyColumnFamilyHandle(cf1);
+//	s = db->DestroyColumnFamilyHandle(cf2);
+//	assert(s.ok());
+//	delete db;
+
+			// open DB with two column families
+			std::vector <std::string> cf_names;
+			DB::ListColumnFamilies(DBOptions(), kDBPath, &cf_names);
+
+			std::vector<ColumnFamilyDescriptor> column_families;
+			std::cout << "Column families:" << std::endl;
+			for (auto name : cf_names){
+				std::cout << name << std::endl;
+				column_families.push_back(ColumnFamilyDescriptor(
+						name, ColumnFamilyOptions()));
+			}
+			std::cout << std::endl;
+			std::vector<ColumnFamilyHandle*> handles;
+			s = DB::Open(DBOptions(), kDBPath, column_families, &handles, &db);
+			assert(s.ok());
+
+			std::cout << handles.size() << " = size" << std::endl;
+
+//	WriteBatch batch;
+//	for (int i = 0;  i < handles.size(); ++i) {
+//		for (int j = 0; j < 7; ++j) {
+//			// atomic write
+//			std::string key = "key" + std::to_string(j);
+//			std::string value = "value" + std::to_string(j);
+//			batch.Put(handles[i], Slice(key), Slice(value));
+//		}
+//	}
+//	s = db->Write(WriteOptions(), &batch);
+//	assert(s.ok());
+//
+			std::vector< Iterator* > iterators;
+			s = db->NewIterators(ReadOptions(), handles, &iterators);
+
+			auto iterator_column_names = cf_names.begin();
+			for(auto it : iterators) {
+				std::cout << *iterator_column_names << std::endl << std::endl;
+				for (it->SeekToFirst(); it->Valid(); it->Next()) {
+					std::cout << it->key().data() << ": "
+					          << it->value().ToString()
+					          << std::endl;
+				}
+				iterator_column_names++;
+				delete it;
+			}
+
+			// close db
+			for (auto handle : handles) {
+				s = db->DestroyColumnFamilyHandle(handle);
+				assert(s.ok());
+			}
+			delete db;
+
+			return 0;
+		}
+*/
+//-------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //        bool empty_queue = true;
 //        while (empty_queue && !finish_him.load()) {
 //            while (!safe_downloads.try_lock()) {
@@ -261,8 +408,9 @@ private:
 
 public:
     void i_like_to_hash_it_hash_it(){
-        init();
-        //log example : BOOST_LOG_TRIVIAL(log_level) <<  "ID: " << id;
+    	std::stringstream ss;
+    	ss << "ERROR MESSAGE";
+	    log_it(ss);
 
         try {
             ctpl::thread_pool working_threads(threads);
@@ -276,7 +424,7 @@ public:
             std::cout << e.what();
         } catch (...){
             std::cout << "Unknown error! Ask those stupid coders:0";
-//        }
+        }
     }
 
 private:
@@ -288,10 +436,10 @@ private:
     std::atomic_bool hashing_finished;
     std::atomic_uint notes_in_work;
 
-    std::queue <parse_this> * processing_queue;
+    std::queue <hash_this> * processing_queue;
     std::mutex safe_processing;
 
-    std::queue <std::string> * output_queue;
+    std::queue <print_this> * output_queue;
     std::mutex safe_output;
 };
 
@@ -308,13 +456,16 @@ Params parse_cmd(const po::variables_map& vm){
     return cmd_params;
 }
 Params command_line_processor(int argc, char* argv[]){
+	po::positional_options_description file_name;
+	file_name.add("input-file", -1);
+
     po::options_description desc("General options");
     std::string task_type;
     desc.add_options()
             ("help,h", "Show help")
             ("type,t", po::value<std::string>(&task_type),
              "Select task: hash");
-    desc.add("input-file", -1);
+
     po::options_description parse_desc("Work options");
     parse_desc.add_options()
             ("log-level,l", po::value<std::string>()->default_value("error"),
@@ -327,7 +478,7 @@ Params command_line_processor(int argc, char* argv[]){
     po::variables_map vm;
     try {
         po::parsed_options parsed = po::command_line_parser(argc,
-                                                            argv).options(desc).allow_unregistered().run();
+         argv).options(desc).positional(file_name).allow_unregistered().run();
         po::store(parsed, vm);
         po::notify(vm);
         if (task_type == "hash") {

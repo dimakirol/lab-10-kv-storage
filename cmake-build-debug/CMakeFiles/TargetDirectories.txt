@@ -1,0 +1,3 @@
+/home/kirill/Documents/4_semestr/lab-10-kv-storage/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/kirill/Documents/4_semestr/lab-10-kv-storage/cmake-build-debug/CMakeFiles/10_lab.dir
+/home/kirill/Documents/4_semestr/lab-10-kv-storage/cmake-build-debug/CMakeFiles/edit_cache.dir

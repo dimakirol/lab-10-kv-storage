@@ -1,12 +1,17 @@
-"C:\Program Files\JetBrains\CLion 2019.3.4\bin\cmake\win\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - MinGW Makefiles" D:\Kirill\VUZ\4_Semestr\C++\group\lab-10-kv-storage
-CMake Error at CMakeLists.txt:14 (include):
-  include could not find load file:
-
-    tools/gate/cmake/HunterGate.cmake
-
-
-CMake Error at CMakeLists.txt:16 (HunterGate):
-  Unknown CMake command "HunterGate".
-
-
--- Configuring incomplete, errors occurred!
+/home/kirill/Documents/Clion/clion-2019.3.4/bin/cmake/linux/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /home/kirill/Documents/4_semestr/lab-10-kv-storage
+-- [hunter] Calculating Toolchain-SHA1
+-- [hunter] Calculating Config-SHA1
+-- [hunter] HUNTER_ROOT: /home/kirill/.hunter
+-- [hunter] [ Hunter-ID: 9a3594a | Toolchain-ID: 9b2c9d4 | Config-ID: 48401e9 ]
+-- [hunter] BOOST_ROOT: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install (ver.: 1.70.0-p0)
+-- [hunter] BOOST_ROOT: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install (ver.: 1.70.0-p0)
+-- [hunter] BOOST_ROOT: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install (ver.: 1.70.0-p0)
+-- [hunter] BOOST_ROOT: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install (ver.: 1.70.0-p0)
+-- [hunter] BOOST_ROOT: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install (ver.: 1.70.0-p0)
+Boost 1.70.0 found.
+Found Boost components:
+   thread;log_setup;log;program_options;coroutine
+-- [hunter] ROCKSDB_ROOT: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install (ver.: 5.14.2)
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/kirill/Documents/4_semestr/lab-10-kv-storage/cmake-build-debug
