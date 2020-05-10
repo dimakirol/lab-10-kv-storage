@@ -15,13 +15,14 @@ public:
                 "1234567890";
         auto now = static_cast<unsigned int>(time(nullptr));
         randomizer = static_cast<uint64_t>(rand_r(&now) % alpha.length());
+        random_string.assign(alpha, 0, VALUE_SIZE);
     }
 
     std::string SetRandomValue (int ThreadID) {
-	    randomizer += ThreadID;
+        randomizer += ThreadID;
         int64_t tmp_randomizer = randomizer;
-        std::string random_string = alpha;
-        random_string.assign(alpha, 0, VALUE_SIZE);
+        //std::string random_string = alpha;
+        //random_string.assign(alpha, 0, VALUE_SIZE);
         random_string.erase(tmp_randomizer % random_string.size(), 1);
         random_string = random_string + alpha[tmp_randomizer % alpha.size()];
         return random_string;
@@ -29,6 +30,7 @@ public:
 
     std::atomic_int64_t randomizer;
     std::string alpha;
+    std::string random_string;
 };
 
 struct Params{
@@ -304,32 +306,65 @@ private:
     }
 
     void writing_output(){
-//        std::ofstream ostream;
-//        ostream.open(out);
-//        if (!ostream.is_open()){
-//            std::cout << "The file " << out << " is not open" << std::endl;
-//            throw std::logic_error("Output file is not opened!:(! ");
-//        }
-//        while (!finish_him.load()) {
-//            while (!safe_output.try_lock()){
-//                std::this_thread::sleep_for(std::chrono::milliseconds(
-//                        masha_sleeps_seconds));
-//            }
-//            bool empty_queue = output_queue->empty();
-//            safe_output.unlock();
-//            while (!empty_queue) {
-//                while (!safe_output.try_lock()) {
-//                    std::this_thread::sleep_for(std::chrono::milliseconds(
-//                            masha_sleeps_seconds));
-//                }
-//                std::string shit_to_write = output_queue->front();
-//                ostream << shit_to_write << std::endl;
-//                output_queue->pop();
-//                empty_queue = output_queue->empty();
-//                safe_output.unlock();
-//            }
-//        }
-//        ostream.close();
+      make_db(out, cf_names);
+      Options options;
+      options.create_if_missing = true;
+      DB* db;
+      Status s;
+      std::vector <std::string> cf_names;
+      DB::ListColumnFamilies(DBOptions(), out, &cf_names);
+
+      std::vector<ColumnFamilyDescriptor> column_families;
+      for (auto name : cf_names){
+        column_families.push_back(ColumnFamilyDescriptor(
+            name, ColumnFamilyOptions()));
+      }
+
+      std::vector<ColumnFamilyHandle*> handles;
+      s = DB::Open(DBOptions(), out, column_families, &handles, &db);
+      assert(s.ok());
+
+
+      print_this object_to_print;
+      
+      while (!safe_output.try_lock()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(
+            masha_sleeps_seconds));
+      }
+      bool empty_queue = output_queue->empty();
+      safe_output.unlock();
+      
+      WriteBatch batch;
+      while (cf_names_are_ready && !empty_queue) {
+        
+        while (!safe_output.try_lock()) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(
+              masha_sleeps_seconds));
+        }
+        object_to_print = output_queue->front();
+        output_queue->pop(struct_after_hash);
+        safe_output.unlock();
+        
+        for (auto it : handles) {
+          if (*it == object_to_print.cf_name)
+            batch.Put(*it, Slice(object_to_print.key), Slice(object_to_print.value)); //parameters depend on the package 
+        }
+
+        while (!safe_output.try_lock()) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(
+              masha_sleeps_seconds));
+        }
+        empty_queue = output_queue->empty();
+        safe_output.unlock();
+      }
+      s = db->Write(WriteOptions(), &batch);
+      assert(s.ok());
+      
+      for (auto handle : handles) {
+        s = db->DestroyColumnFamilyHandle(handle);
+        assert(s.ok());
+      }
+      delete db;
     }
 
 public:
