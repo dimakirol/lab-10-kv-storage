@@ -79,7 +79,6 @@ public:
 
 private:
 	void log_it(std::stringstream &ss){
-		BOOST_LOG_TRIVIAL(trace) << "kuku";
     	if (log_level == "debug"){
     		BOOST_LOG_TRIVIAL(debug) << "kuku";
     	} else if (log_level == "info"){
@@ -445,21 +444,18 @@ private:
 
 Params parse_cmd(const po::variables_map& vm){
     Params cmd_params;
-    if (vm.count("input-file"))
-        cmd_params.input = vm["input-file"].as<std::string>();
     if (vm.count("log-level"))
         cmd_params.log_level = vm["log-level"].as<std::string>();
     if (vm.count("thread-count"))
         cmd_params.threads = vm["thread-count"].as<uint32_t>();
     if (vm.count("output"))
         cmd_params.out = vm["output"].as<std::string>();
+	if (vm.count("input-file"))
+		cmd_params.input = vm["input-file"].as<std::string>();
     return cmd_params;
 }
 Params command_line_processor(int argc, char* argv[]){
-	po::positional_options_description file_name;
-	file_name.add("input-file", -1);
-
-    po::options_description desc("General options");
+	po::options_description desc("General options");
     std::string task_type;
     desc.add_options()
             ("help,h", "Show help")
@@ -470,31 +466,39 @@ Params command_line_processor(int argc, char* argv[]){
     parse_desc.add_options()
             ("log-level,l", po::value<std::string>()->default_value("error"),
                     "= \"info\"|\"warning\"|\"error\"\n"
-                    "\t\t\t\t\t\t\t\t= default: \"error\"")
+                    "\t= default: \"error\"")
             ("thread-count,t", po::value<uint32_t>()->default_value(default_threads),
-             "Input number of working threads"
-             "\t\t\t\t\t\t\t\t= default: count of logical core")
+             "=Input number of working threads\n"
+             "\t= default: count of logical core")
+		    ("input-file", po::value<std::string>()->required(), "input file")
             ("output,O", po::value<std::string>(), "Output parameters file");
+	po::positional_options_description file_name;
+	file_name.add("input-file", -1);
     po::variables_map vm;
     try {
-        po::parsed_options parsed = po::command_line_parser(argc,
-         argv).options(desc).positional(file_name).allow_unregistered().run();
+        auto parsed = po::command_line_parser(argc,
+         argv).options(desc).allow_unregistered().run();
         po::store(parsed, vm);
         po::notify(vm);
         if (task_type == "hash") {
-            desc.add(parse_desc);
-            po::store(po::parse_command_line(argc, argv, desc), vm);
+	         desc.add(parse_desc);
+	        parsed = po::command_line_parser(argc,
+	                                              argv).options(desc).positional(file_name).allow_unregistered().run();
+	        po::store(parsed, vm);
+            po::notify(vm);
             Params cmd_params = parse_cmd(vm);
             return cmd_params;
         } else {
-            std::cout << "Usage:\n" << "\n"
+            std::cout << "Usage:" << "\n"
                       << "  dbhr [options] <path/to/input/storage.db>"
                       << std::endl;
             desc.add(parse_desc);
             std::cout << desc << std::endl;
+	        exit(0);
         }
     } catch(std::exception& ex) {
-        std::cout << desc << std::endl;
+        std::cout << ex.what() << std::endl;
+        exit(-1);
     }
     return Params();
 }

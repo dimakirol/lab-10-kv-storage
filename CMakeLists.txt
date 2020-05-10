@@ -25,8 +25,9 @@ project(10_lab)
 
 
 hunter_add_package(Boost COMPONENTS program_options coroutine thread log)
-string(APPEND CMAKE_CXX_FLAGS " -g -Wall -DBOOST_LOG_DYN_LINK")
+#string(APPEND CMAKE_CXX_FLAGS " -g -Wall -DBOOST_LOG_DYN_LINK")
 find_package(Boost 1.70.0 COMPONENTS REQUIRED thread log_setup log program_options coroutine)
+
 
 hunter_add_package(rocksdb)
 find_package(RocksDB CONFIG REQUIRED)
@@ -51,7 +52,8 @@ target_include_directories(10_lab
 #        )
 
 #target_link_libraries(tests GTest::main 10_lab RocksDB::rocksdb)
-target_link_libraries(10_lab RocksDB::rocksdb Boost::program_options Boost::log Boost::thread)
+target_link_libraries(10_lab Boost::log Boost::thread)
+target_link_libraries(10_lab RocksDB::rocksdb Boost::program_options)
 
 #enable_testing()
 #add_test(NAME unit_tests COMMAND tests)

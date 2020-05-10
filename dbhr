@@ -1,0 +1,6 @@
+#!/bin/bash
+alias dbhr='./dbhr'
+cd cmake-build-debug
+./10_lab  --type=hash --log-level=$1 --thread-count=4 --output=syuda.db baza.db
+cd ..
+

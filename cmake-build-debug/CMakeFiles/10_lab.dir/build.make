@@ -79,10 +79,10 @@ CMakeFiles/10_lab.dir/sources/source.cpp.s: cmake_force
 
 10_lab: CMakeFiles/10_lab.dir/sources/source.cpp.o
 10_lab: CMakeFiles/10_lab.dir/build.make
-10_lab: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install/lib/librocksdbd.a
-10_lab: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install/lib/libboost_program_options-mt-d-x64.a
 10_lab: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install/lib/libboost_log-mt-d-x64.a
 10_lab: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install/lib/libboost_thread-mt-d-x64.a
+10_lab: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install/lib/librocksdbd.a
+10_lab: /home/kirill/.hunter/_Base/9a3594a/9b2c9d4/48401e9/Install/lib/libboost_program_options-mt-d-x64.a
 10_lab: CMakeFiles/10_lab.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/kirill/Documents/4_semestr/lab-10-kv-storage/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable 10_lab"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/10_lab.dir/link.txt --verbose=$(VERBOSE)
