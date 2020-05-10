@@ -27,20 +27,16 @@
 #include <boost/thread/thread.hpp>
 
 #include <boost/log/trivial.hpp>
-//#include <boost/log/core.hpp>
-//#include <boost/log/expressions.hpp>
-//#include <boost/log/utility/setup/file.hpp>
-//#include <boost/log/utility/setup/common_attributes.hpp>
 
 #include <rocksdb/db.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/options.h>
 
 namespace Rocksdb = rocksdb;
-//using boost::log::v2_mt_posix::trivial::logger;
 namespace po = boost::program_options;
-//namespace logging = boost::log;
+using namespace rocksdb;
 
-static const uint32_t SIZE_FILE = 10*1024*1024;
+static const uint32_t notes_number = rand()%17 + 3;
+static const uint32_t masha_sleeps_seconds = rand()%4 + 3;
 static const uint32_t default_threads = std::thread::hardware_concurrency();
 #endif // INCLUDE_HEADER_HPP_

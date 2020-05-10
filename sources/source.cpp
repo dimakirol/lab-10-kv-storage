@@ -18,8 +18,8 @@ public:
     }
 
     std::string SetRandomValue (int ThreadID) {
+	    randomizer += ThreadID;
         int64_t tmp_randomizer = randomizer;
-        tmp_randomizer += ThreadID;
         std::string random_string = alpha;
         random_string.assign(alpha, 0, VALUE_SIZE);
         random_string.erase(tmp_randomizer % random_string.size(), 1);
@@ -76,23 +76,26 @@ struct print_this{
         key = std::string("");
         hash = nullptr;
     }
-	print_this(std::string _cf_name, std::string _key, std::string* _hash){
+	print_this(std::string _cf_name, std::string _key, std::string _hash){
 		cf_name = _cf_name;
         key = _key;
         hash = _hash;
     }
 	std::string cf_name;
     std::string key;
-    std::string* hash;
+    std::string hash;
 } typedef print_this;
 
 class BD_Hasher{
 public:
     explicit BD_Hasher(Params &parameters){
+    	source = parameters.input;
         log_level = parameters.log_level;
         notes_in_work.store(0);
         threads = parameters.threads;
         out = parameters.out;
+
+	    cf_names_are_ready.store(false);
 
         download_finished = false;
         hashing_finished = false;
@@ -107,6 +110,70 @@ public:
     }
 
 private:
+	void feel_db(std::string name){
+		Options options;
+		options.create_if_missing = true;
+		DB* db;
+		Status s;
+		std::vector <std::string> cf_names;
+		DB::ListColumnFamilies(DBOptions(), name, &cf_names);
+
+		std::vector<ColumnFamilyDescriptor> column_families;
+//		std::cout << "Column families:" << std::endl;
+		for (auto name : cf_names){
+//			std::cout << name << std::endl;
+			column_families.push_back(ColumnFamilyDescriptor(
+					name, ColumnFamilyOptions()));
+		}
+//		std::cout << std::endl;
+		std::vector<ColumnFamilyHandle*> handles;
+		s = DB::Open(DBOptions(), name, column_families, &handles, &db);
+		assert(s.ok());
+
+		RandomString random_str;
+		WriteBatch batch;
+		for (uint32_t i = 0; i < column_families.size(); ++i){
+			for (int j = 0; j < notes_number; ++j) {
+				std::string key;
+				if (!i){
+					key = "key_default_" + std::to_string(j);
+				} else {
+					key = "key_" + cf_names[i] + "_" + std::to_string(j);
+				}
+				std::string value = random_str.SetRandomValue(j);
+				batch.Put(handles[i], Slice(key), Slice(value));
+			}
+			s = db->Write(WriteOptions(), &batch);
+			assert(s.ok());
+		}
+		for (auto handle : handles) {
+			s = db->DestroyColumnFamilyHandle(handle);
+			assert(s.ok());
+		}
+		delete db;
+
+    }
+	void make_db(std::string name, std::vector <std::string> cf_names){
+    	//open DB
+		Options options;
+		options.create_if_missing = true;
+		DB* db;
+		Status s = DB::Open(options, name, &db);
+
+		ColumnFamilyHandle* cf_handle;
+//		uint32_t counter = 0;
+		for (auto column_family : cf_names) {
+			// create column family
+			s = db->CreateColumnFamily(ColumnFamilyOptions(),
+			                           column_family, &cf_handle);
+			assert(s.ok());
+
+			// close DB
+			s = db->DestroyColumnFamilyHandle(cf_handle); //????????????????????????????????????????
+			assert(s.ok());
+		}
+		delete db;
+    }
 	void log_it(std::stringstream &ss){
     	if (log_level == "debug"){
     		BOOST_LOG_TRIVIAL(debug) << "kuku";
@@ -123,125 +190,28 @@ private:
 		}
 
     }
-	static void hasher(ctpl::thread_pool *working_threads) {
-    std::string str_before_hash;
-    std::string str_after_hash;
-    hash_this struct_before_hash;
-     bool empty_queue = true;
-    
-        while (!finish_him.load()) {
-            while (!safe_output.try_lock()){
-                std::this_thread::sleep_for(std::chrono::milliseconds(
-                        masha_sleeps_seconds));
-            }
-            empty_queue = output_queue->empty();
-            safe_output.unlock();
-        }    
-        while (!empty_queue) {
-            while (!safe_output.try_lock()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(
-                        masha_sleeps_seconds));
-            }
-            std::struct prepare = output_queue->front();
-            output_queue->pop();  
-            safe_output.unlock();
-
-            network_threads->push(std::bind(&BD_Hasher::hasher,
-                this, working_threads));
-
-            std::string str_before_hash = prepare.key + prepare.value;
-            picosha2::hash256_hex_string(str_before_hash, str_after_hash);
-            print_this (struct_before_hash.cf_name, struct_before_hash.key, *str_after_hash);
-            
-            empty_queue = output_queue->empty();
-            
-        }
-}
-	
-//    void init()
-//    {
-//	    boost::log::register_simple_formatter_factory
-//			    <boost::log::trivial::severity_level, char>("Severity");
-//	    logging::add_file_log
-//			    (
-//					    logging::keywords::file_name = "log_%N.log",
-//					    logging::keywords::rotation_size = SIZE_FILE,
-//					    logging::keywords::time_based_rotation =
-//							    boost::log::sinks::file::rotation_at_time_point{0,
-//							                                                    0, 0},
-//					    logging::keywords::format =
-//							    "[%TimeStamp%] [%Severity%] %Message%");
-//
-//	    add_console_log(
-//			    std::cout,
-//			    logging::keywords::format
-//					    = "[%TimeStamp%] [%Severity%]: %Message%");
-//	    logging::add_common_attributes();
-//    }
     void downloading_notes(ctpl::thread_pool *network_threads){
+		//open DB
+	    Options options;
+	    options.create_if_missing = true;
+	    DB* db;
+	    Status s;
+		DB::ListColumnFamilies(DBOptions(), source, &cf_names);
+	    cf_names_are_ready.store(true);
 
-    	//_---------------------------------------------CODE ROCKSDB_______________------------------
+		std::vector<ColumnFamilyDescriptor> column_families;
+		std::cout << "Column families:" << std::endl;
+		for (auto name : cf_names){
+			std::cout << name << std::endl;
+			column_families.push_back(ColumnFamilyDescriptor(
+					name, ColumnFamilyOptions()));
+		}
+		std::cout << std::endl;
+		std::vector<ColumnFamilyHandle*> handles;
+		s = DB::Open(DBOptions(), source, column_families, &handles, &db);
+		assert(s.ok());
 
-/*
-// Created by kirill on 09.05.2020.
-//
-// Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
-//  This source code is licensed under both the GPLv2 (found in the
-//  COPYING file in the root directory) and Apache 2.0 License
-//  (found in the LICENSE.Apache file in the root directory).
-#include <iostream>
-
-#include <cstdio>
-#include <string>
-#include <vector>
-
-#include <rocksdb/db.h>
-#include <rocksdb/slice.h>
-#include <rocksdb/options.h>
-
-		using namespace rocksdb;
-
-		std::string kDBPath = "rocksdb_column_families_example";
-
-		int main() {
-			// open DB
-//	Options options;
-//	options.create_if_missing = true;
-			DB* db;
-			Status s;// = DB::Open(options, kDBPath, &db);
-//	assert(s.ok());
-//
-//	// create column family
-//	ColumnFamilyHandle* cf1;
-//	s = db->CreateColumnFamily(ColumnFamilyOptions(), "cf_1", &cf1);
-//	assert(s.ok());
-//	ColumnFamilyHandle* cf2;
-//	s = db->CreateColumnFamily(ColumnFamilyOptions(), "cf_2", &cf2);
-//	assert(s.ok());
-//
-//	// close DB
-//	s = db->DestroyColumnFamilyHandle(cf1);
-//	s = db->DestroyColumnFamilyHandle(cf2);
-//	assert(s.ok());
-//	delete db;
-
-			// open DB with two column families
-			std::vector <std::string> cf_names;
-			DB::ListColumnFamilies(DBOptions(), kDBPath, &cf_names);
-
-			std::vector<ColumnFamilyDescriptor> column_families;
-			std::cout << "Column families:" << std::endl;
-			for (auto name : cf_names){
-				std::cout << name << std::endl;
-				column_families.push_back(ColumnFamilyDescriptor(
-						name, ColumnFamilyOptions()));
-			}
-			std::cout << std::endl;
-			std::vector<ColumnFamilyHandle*> handles;
-			s = DB::Open(DBOptions(), kDBPath, column_families, &handles, &db);
-			assert(s.ok());
-
-			std::cout << handles.size() << " = size" << std::endl;
+		std::cout << handles.size() << " = size" << std::endl;
 
 //	WriteBatch batch;
 //	for (int i = 0;  i < handles.size(); ++i) {
@@ -276,26 +246,6 @@ private:
 				assert(s.ok());
 			}
 			delete db;
-
-			return 0;
-		}
-*/
-//-------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //        bool empty_queue = true;
 //        while (empty_queue && !finish_him.load()) {
@@ -349,96 +299,46 @@ private:
 //        safe_processing.unlock();
     }
     void parsing_notes(ctpl::thread_pool *parsing_threads) {
-//        bool empty_queue = true;
-//        while (empty_queue && !finish_him.load()) {
-//            while (!safe_processing.try_lock()) {
-//                std::this_thread::sleep_for(std::chrono::milliseconds(
-//                        dima_sleeps_seconds));
-//            }
-//            empty_queue = processing_queue->empty();
-//            safe_processing.unlock();
-//        }
-//        if (finish_him.load()) {
-//            return;
-//        }
-//
-//        download_this download_package;
-//        parse_this parse_package;
-//
-//        while (!safe_processing.try_lock()) {
-//            std::this_thread::sleep_for(std::chrono::milliseconds(
-//                    dima_sleeps_seconds));
-//        }
-//        parse_package = processing_queue->front();
-//        processing_queue->pop();
-//        safe_processing.unlock();
-//
-//        parsing_threads->push(std::bind(&MyCrawler::parsing_pages,
-//                                        this, parsing_threads));
-//
-//        std::vector<std::string> img_references;
-//        std::vector<std::string> href_references;
-//        std::vector<std::string> paths_in_hrefs;
-//        std::vector<bool> https_protocol;
-//
-//        GumboOutput* output = gumbo_parse(parse_package.website.c_str());
-//        search_for_links(output->root, img_references, href_references);
-//        true_site(parse_package.url, parse_package.protocol);
-//        all_right_references(img_references, href_references,
-//                             paths_in_hrefs, parse_package.url,
-//                             parse_package.target);
-//        about_https(https_protocol, href_references);
-//
-//        if (parse_package.current_depth) {
-//            if (!href_references.empty()) {
-//                bool first_one = true;
-//                while (!href_references.empty()) {
-//                    download_package.url = href_references[
-//                            href_references.size() - odin];
-//                    download_package.current_depth =
-//                            parse_package.current_depth - odin;
-//                    download_package.target = paths_in_hrefs[
-//                            paths_in_hrefs.size() - odin];
-//                    download_package.protocol = https_protocol[
-//                            https_protocol.size() - odin];
-//                    while (!safe_downloads.try_lock()) {
-//                        std::this_thread::sleep_for(std::chrono::milliseconds(
-//                                dima_sleeps_seconds));
-//                    }
-//                    download_queue->push(download_package);
-//                    safe_downloads.unlock();
-//                    href_references.pop_back();
-//                    paths_in_hrefs.pop_back();
-//                    https_protocol.pop_back();
-//                    if (!first_one){
-//                        sites_in_work.store(sites_in_work.load() + odin);
-//                    } else {
-//                        first_one = false;
-//                    }
-//                }
-//            } else {
-//                sites_in_work.store(sites_in_work.load() - odin);
-//            }
-//        } else {
-//            sites_in_work.store(sites_in_work.load() - odin);
-//        }
-//        std::cout << "Sites in work " << sites_in_work.load()
-//                  << ".............." << std::endl;
-//
-//        while (!img_references.empty()) {
-//            while (!safe_output.try_lock()) {
-//                std::this_thread::sleep_for(std::chrono::milliseconds(
-//                        dima_sleeps_seconds));
-//            }
-//            output_queue->push(img_references[img_references.size() - odin]);
-//            safe_output.unlock();
-//            img_references.pop_back();
-//        }
-//        gumbo_destroy_output(&kGumboDefaultOptions, output);
-//
-//        if (!sites_in_work.load()) {
-//            finish_him.store(true);
-        }
+	    std::string str_before_hash;
+	    std::string str_after_hash;
+	    hash_this struct_before_hash;
+	    bool empty_queue = true;
+
+	    while (!download_finished.load() && !empty_queue) {
+		    while (!safe_processing.try_lock()){
+			    std::this_thread::sleep_for(std::chrono::milliseconds(
+					    masha_sleeps_seconds));
+		    }
+		    empty_queue = processing_queue->empty();
+		    safe_processing.unlock();
+	    }
+	    if (download_finished.load() && empty_queue){
+		    hashing_finished.store(true);
+	    }
+
+	    while (!safe_processing.try_lock()) {
+		    std::this_thread::sleep_for(std::chrono::milliseconds(
+				    masha_sleeps_seconds));
+	    }
+	    struct_before_hash = processing_queue->front();
+	    processing_queue->pop();
+	    safe_processing.unlock();
+
+	    parsing_threads->push(std::bind(&BD_Hasher::parsing_notes,
+	                                    this, parsing_threads));
+
+	    str_before_hash = struct_before_hash.key + struct_before_hash.value;
+	    picosha2::hash256_hex_string(str_before_hash, str_after_hash);
+	    print_this struct_after_hash(struct_before_hash.cf_name,
+	                                 struct_before_hash.key, str_after_hash);
+
+	    while (!safe_output.try_lock()) {
+		    std::this_thread::sleep_for(std::chrono::milliseconds(
+				    masha_sleeps_seconds));
+	    }
+	    output_queue->push(struct_after_hash);
+	    safe_output.unlock();
+    }
 
     void writing_output(){
 //        std::ofstream ostream;
@@ -471,11 +371,18 @@ private:
 
 public:
     void i_like_to_hash_it_hash_it(){
-    	std::stringstream ss;
-    	ss << "ERROR MESSAGE";
-	    log_it(ss);
-
         try {
+        	std::vector <std::string> cf_names;
+        	int count = 1;
+        	for (auto cf_name : cf_names){
+        		cf_name = "cf_" + std::to_string(count);
+        	}
+	        make_db(source, cf_names);
+	        feel_db(source);
+	        std::stringstream ss;
+	        ss << "Database successfully created";
+	        log_it(ss);
+
             ctpl::thread_pool working_threads(threads);
 
             working_threads.push(std::bind(&BD_Hasher::downloading_notes,
@@ -491,9 +398,13 @@ public:
     }
 
 private:
+	std::string source;
     std::string log_level;
     uint32_t threads;
     std::string out;
+
+	std::atomic_bool cf_names_are_ready;
+	std::vector <std::string> cf_names;
 
     std::atomic_bool download_finished;
     std::atomic_bool hashing_finished;
