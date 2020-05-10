@@ -159,144 +159,107 @@ private:
 		options.create_if_missing = true;
 		DB* db;
 		Status s = DB::Open(options, name, &db);
+		assert(s.ok());
 
-		ColumnFamilyHandle* cf_handle;
-//		uint32_t counter = 0;
+		std::vector <ColumnFamilyHandle*> handles;
+		ColumnFamilyHandle* cf;
+
 		for (auto column_family : cf_names) {
 			// create column family
+//			ss << column_family;
+//			log_it();
 			s = db->CreateColumnFamily(ColumnFamilyOptions(),
-			                           column_family, &cf_handle);
+			                           column_family, &cf);
 			assert(s.ok());
+			handles.push_back(cf);
+		}
 
+		for (auto handle : handles) {
 			// close DB
-			s = db->DestroyColumnFamilyHandle(cf_handle); //????????????????????????????????????????
+			s = db->DestroyColumnFamilyHandle(handle);
 			assert(s.ok());
 		}
 		delete db;
     }
-	void log_it(std::stringstream &ss){
+	void log_it(){
     	if (log_level == "debug"){
-    		BOOST_LOG_TRIVIAL(debug) << "kuku";
+    		BOOST_LOG_TRIVIAL(debug) << ss.str() << std::endl;
     	} else if (log_level == "info"){
-		    BOOST_LOG_TRIVIAL(info) << ss.str();
+		    BOOST_LOG_TRIVIAL(info) << ss.str() << std::endl;
     	} else if (log_level == "warning"){
-		    BOOST_LOG_TRIVIAL(warning) << ss.str();
+		    BOOST_LOG_TRIVIAL(warning) << ss.str() << std::endl;
 		} else if (log_level == "error"){
-		    BOOST_LOG_TRIVIAL(error) << ss.str();
+		    BOOST_LOG_TRIVIAL(error) << ss.str() << std::endl;
 		} else if (log_level == "fatal"){
-		    BOOST_LOG_TRIVIAL(fatal) << ss.str();
+		    BOOST_LOG_TRIVIAL(fatal) << ss.str() << std::endl;
 		} else if (log_level == "trace"){
-		    BOOST_LOG_TRIVIAL(trace) << ss.str();
+		    BOOST_LOG_TRIVIAL(trace) << ss.str() << std::endl;
 		}
-
+		ss.str("");
+//		ss.clear();
+//    	std::string sm_str;
+//    	ss >> sm_str;
     }
-    void downloading_notes(ctpl::thread_pool *network_threads){
+    void downloading_notes(){
+    	std::vector <hash_this> please_hash_it;
 		//open DB
-	    Options options;
-	    options.create_if_missing = true;
 	    DB* db;
 	    Status s;
 		DB::ListColumnFamilies(DBOptions(), source, &cf_names);
 	    cf_names_are_ready.store(true);
 
 		std::vector<ColumnFamilyDescriptor> column_families;
-		std::cout << "Column families:" << std::endl;
+//		std::cout << "Column families:" << std::endl;
+
 		for (auto name : cf_names){
-			std::cout << name << std::endl;
+//			std::cout << name << std::endl;
 			column_families.push_back(ColumnFamilyDescriptor(
 					name, ColumnFamilyOptions()));
 		}
-		std::cout << std::endl;
+//		std::cout << std::endl;
 		std::vector<ColumnFamilyHandle*> handles;
 		s = DB::Open(DBOptions(), source, column_families, &handles, &db);
 		assert(s.ok());
 
-		std::cout << handles.size() << " = size" << std::endl;
+		std::vector< Iterator* > iterators;
+		s = db->NewIterators(ReadOptions(), handles, &iterators);
+	    assert(s.ok());
 
-//	WriteBatch batch;
-//	for (int i = 0;  i < handles.size(); ++i) {
-//		for (int j = 0; j < 7; ++j) {
-//			// atomic write
-//			std::string key = "key" + std::to_string(j);
-//			std::string value = "value" + std::to_string(j);
-//			batch.Put(handles[i], Slice(key), Slice(value));
-//		}
-//	}
-//	s = db->Write(WriteOptions(), &batch);
-//	assert(s.ok());
-//
-			std::vector< Iterator* > iterators;
-			s = db->NewIterators(ReadOptions(), handles, &iterators);
-
-			auto iterator_column_names = cf_names.begin();
-			for(auto it : iterators) {
-				std::cout << *iterator_column_names << std::endl << std::endl;
-				for (it->SeekToFirst(); it->Valid(); it->Next()) {
-					std::cout << it->key().data() << ": "
-					          << it->value().ToString()
-					          << std::endl;
-				}
-				iterator_column_names++;
-				delete it;
+		auto iterator_column_names = cf_names.begin();
+		uint32_t i = 0;
+		for(auto it : iterators) {
+//			std::cout << *iterator_column_names << std::endl << std::endl;
+			for (it->SeekToFirst(); it->Valid(); it->Next()) {
+				please_hash_it.push_back(hash_this(*iterator_column_names,
+						                it->key().data(),
+						              it->value().ToString()));
+//				std::cout << it->key().data() << ": "
+//				          << it->value().ToString()
+//				          << std::endl;
 			}
+			i++;
+			iterator_column_names++;
+			delete it;
+		}
 
-			// close db
-			for (auto handle : handles) {
-				s = db->DestroyColumnFamilyHandle(handle);
-				assert(s.ok());
-			}
-			delete db;
+		// close db
+		for (auto handle : handles) {
+			s = db->DestroyColumnFamilyHandle(handle);
+			assert(s.ok());
+		}
+		delete db;
 
-//        bool empty_queue = true;
-//        while (empty_queue && !finish_him.load()) {
-//            while (!safe_downloads.try_lock()) {
-//                std::this_thread::sleep_for(std::chrono::milliseconds(
-//                        kirill_sleeps_seconds));
-//            }
-//            empty_queue = download_queue->empty();
-//            safe_downloads.unlock();
-//        }
-//        if (finish_him.load()) {
-//            return;
-//        }
-//
-//        while (!safe_downloads.try_lock()){
-//            std::this_thread::sleep_for(std::chrono::milliseconds(
-//                    kirill_sleeps_seconds));
-//        }
-//        download_this url_to_download = download_queue->front();
-//        download_queue->pop();
-//        safe_downloads.unlock();
-//
-//        network_threads->push(std::bind(&MyCrawler::downloading_pages,
-//                                        this, network_threads));
-//
-//        std::mutex down_load;
-//        std::string website("");
-//        down_load.lock();
-//        if (url_to_download.protocol){
-//            website = get_https_page(url_to_download.url,
-//                                     HTTPS_PORT, url_to_download.target);
-//            if ((website == std::string(NOT_FOUND)) ||
-//                (website == std::string("")) ||
-//                (website.find(MOVED_PERMANENTLY) != std::string::npos)) {
-//                website = get_https_page((WWW + url_to_download.url),
-//                                         HTTPS_PORT, url_to_download.target);
-//            }
-//        } else {
-//            website = get_http_page((WWW + url_to_download.url),
-//                                    HTTP_PORT, url_to_download.target);
-//        }
-//        down_load.unlock();
-//        parse_this site(url_to_download.url, url_to_download.target,
-//                        website, url_to_download.current_depth,
-//                        url_to_download.protocol);
-//        while (!safe_processing.try_lock()) {
-//            std::this_thread::sleep_for(std::chrono::milliseconds(
-//                    kirill_sleeps_seconds));
-//        }
-//        processing_queue->push(site);
-//        safe_processing.unlock();
+		for (auto element : please_hash_it){
+			while (!safe_processing.try_lock()){
+                std::this_thread::sleep_for(std::chrono::milliseconds(
+                                                       kirill_sleeps_seconds));
+            }
+			processing_queue->push(element);
+			safe_processing.unlock();
+		}
+		download_finished.store(true);
+	    ss << "All key-value paires successfully read!";
+	    log_it();
     }
     void parsing_notes(ctpl::thread_pool *parsing_threads) {
 	    std::string str_before_hash;
@@ -372,26 +335,35 @@ private:
 public:
     void i_like_to_hash_it_hash_it(){
         try {
-        	std::vector <std::string> cf_names;
-        	int count = 1;
-        	for (auto cf_name : cf_names){
-        		cf_name = "cf_" + std::to_string(count);
+	        ss << "Starting........";
+	        log_it();
+        	std::vector <std::string> cf_names_;
+        	for (int i = 0; i < 7; ++i){
+		        cf_names_.push_back(std::string("cf_" + std::to_string(i)));
         	}
-	        make_db(source, cf_names);
+//	        ss << "Creating........";
+	        make_db(source, cf_names_);
+//	        ss << "Filling........";
 	        feel_db(source);
-	        std::stringstream ss;
+
 	        ss << "Database successfully created";
-	        log_it(ss);
+	        log_it();
 
             ctpl::thread_pool working_threads(threads);
 
             working_threads.push(std::bind(&BD_Hasher::downloading_notes,
-                                           this, &working_threads));
+                                           this));
+	        ss << "finishing...";
+	        log_it();
+	        while (!download_finished.load()){
+	        	std::this_thread::yield();
+	        }
+            exit(0);
             working_threads.push(std::bind(&BD_Hasher::parsing_notes,
                                            this, &working_threads));
             writing_output();
         } catch (std::logic_error const& e){
-            std::cout << e.what();
+            std::cout << e.what() << " was an error!";
         } catch (...){
             std::cout << "Unknown error! Ask those stupid coders:0";
         }
@@ -415,6 +387,8 @@ private:
 
     std::queue <print_this> * output_queue;
     std::mutex safe_output;
+
+	std::stringstream ss;
 };
 
 Params parse_cmd(const po::variables_map& vm){

@@ -38,5 +38,6 @@ using namespace rocksdb;
 
 static const uint32_t notes_number = rand()%17 + 3;
 static const uint32_t masha_sleeps_seconds = rand()%4 + 3;
+static const uint32_t kirill_sleeps_seconds = rand()%7 + 2;
 static const uint32_t default_threads = std::thread::hardware_concurrency();
 #endif // INCLUDE_HEADER_HPP_
