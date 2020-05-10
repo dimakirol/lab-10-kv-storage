@@ -2,6 +2,35 @@
 
 #include <header.hpp>
 
+#define KEY_SIZE 14
+#define VALUE_SIZE 30
+
+class RandomString {
+public:
+
+    RandomString() {
+        alpha =
+                "abcdefghijklmnopqrstuvwxyz"
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                "1234567890";
+        auto now = static_cast<unsigned int>(time(nullptr));
+        randomizer = static_cast<uint64_t>(rand_r(&now) % alpha.length());
+    }
+
+    std::string SetRandomValue (int ThreadID) {
+        int64_t tmp_randomizer = randomizer;
+        tmp_randomizer += ThreadID;
+        std::string random_string = alpha;
+        random_string.assign(alpha, 0, VALUE_SIZE);
+        random_string.erase(tmp_randomizer % random_string.size(), 1);
+        random_string = random_string + alpha[tmp_randomizer % alpha.size()];
+        return random_string;
+    }
+
+    std::atomic_int64_t randomizer;
+    std::string alpha;
+};
+
 struct Params{
 	Params(){
 		input = "";
