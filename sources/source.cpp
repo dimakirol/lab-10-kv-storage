@@ -94,6 +94,41 @@ private:
 		}
 
     }
+	static void hasher(ctpl::thread_pool *working_threads) {
+    std::string str_before_hash;
+    std::string str_after_hash;
+    hash_this struct_before_hash;
+     bool empty_queue = true;
+    
+        while (!finish_him.load()) {
+            while (!safe_output.try_lock()){
+                std::this_thread::sleep_for(std::chrono::milliseconds(
+                        masha_sleeps_seconds));
+            }
+            empty_queue = output_queue->empty();
+            safe_output.unlock();
+        }    
+        while (!empty_queue) {
+            while (!safe_output.try_lock()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(
+                        masha_sleeps_seconds));
+            }
+            std::struct prepare = output_queue->front();
+            output_queue->pop();  
+            safe_output.unlock();
+
+            network_threads->push(std::bind(&BD_Hasher::hasher,
+                this, working_threads));
+
+            std::string str_before_hash = prepare.key + prepare.value;
+            picosha2::hash256_hex_string(str_before_hash, str_after_hash);
+            print_this (struct_before_hash.cf_name, struct_before_hash.key, *str_after_hash);
+            
+            empty_queue = output_queue->empty();
+            
+        }
+}
+	
 //    void init()
 //    {
 //	    boost::log::register_simple_formatter_factory
