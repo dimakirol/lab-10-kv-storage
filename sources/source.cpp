@@ -117,12 +117,12 @@ private:
 		options.create_if_missing = true;
 		DB* db;
 		Status s;
-		std::vector <std::string> cf_names;
-		DB::ListColumnFamilies(DBOptions(), name, &cf_names);
+		std::vector <std::string> cf_names_;
+		DB::ListColumnFamilies(DBOptions(), name, &cf_names_);
 
 		std::vector<ColumnFamilyDescriptor> column_families;
 //		std::cout << "Column families:" << std::endl;
-		for (auto name : cf_names){
+		for (auto name : cf_names_){
 //			std::cout << name << std::endl;
 			column_families.push_back(ColumnFamilyDescriptor(
 					name, ColumnFamilyOptions()));
@@ -140,7 +140,7 @@ private:
 				if (!i){
 					key = "key_default_" + std::to_string(j);
 				} else {
-					key = "key_" + cf_names[i] + "_" + std::to_string(j);
+					key = "key_" + cf_names_[i] + "_" + std::to_string(j);
 				}
 				std::string value = random_str.SetRandomValue(j);
 				batch.Put(handles[i], Slice(key), Slice(value));
@@ -155,7 +155,7 @@ private:
 		delete db;
 
     }
-	void make_db(std::string name, std::vector <std::string> cf_names){
+	void make_db(std::string name, std::vector <std::string> cf_names_){
     	//open DB
 		Options options;
 		options.create_if_missing = true;
@@ -166,7 +166,7 @@ private:
 		std::vector <ColumnFamilyHandle*> handles;
 		ColumnFamilyHandle* cf;
 
-		for (auto column_family : cf_names) {
+		for (auto column_family : cf_names_) {
 			// create column family
 //			ss << column_family;
 //			log_it();
@@ -213,8 +213,12 @@ private:
 		std::vector<ColumnFamilyDescriptor> column_families;
 //		std::cout << "Column families:" << std::endl;
 
+//	    ss << "Column families:";
+//	    log_it();
 		for (auto name : cf_names){
 //			std::cout << name << std::endl;
+//			ss <<  name;
+//			log_it();
 			column_families.push_back(ColumnFamilyDescriptor(
 					name, ColumnFamilyOptions()));
 		}
@@ -306,13 +310,13 @@ private:
     }
 
     void writing_output(){
-      make_db(out, cf_names);
+      make_db(out, cf_names); //cf_names_are_ready?
       Options options;
       options.create_if_missing = true;
       DB* db;
       Status s;
-      std::vector <std::string> cf_names;
-      DB::ListColumnFamilies(DBOptions(), out, &cf_names);
+//      std::vector <std::string> cf_names;
+//      DB::ListColumnFamilies(DBOptions(), out, &cf_names);
 
       std::vector<ColumnFamilyDescriptor> column_families;
       for (auto name : cf_names){
@@ -329,27 +333,35 @@ private:
       
       while (!safe_output.try_lock()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(
-            masha_sleeps_seconds));
+		        dima_sleeps_seconds));
       }
       bool empty_queue = output_queue->empty();
       safe_output.unlock();
-      
+
       WriteBatch batch;
-      while (cf_names_are_ready && !empty_queue) {
-        
+      while (cf_names_are_ready && !empty_queue) { //hashing_finished
+        //I) continue
+        //II) std::this_thread::yield()
         while (!safe_output.try_lock()) {
           std::this_thread::sleep_for(std::chrono::milliseconds(
-              masha_sleeps_seconds));
+		          dima_sleeps_seconds));
         }
         object_to_print = output_queue->front();
-        output_queue->pop(struct_after_hash);
+        output_queue->pop();
         safe_output.unlock();
-        
-        for (auto it : handles) {
-          if (*it == object_to_print.cf_name)
-            batch.Put(*it, Slice(object_to_print.key), Slice(object_to_print.value)); //parameters depend on the package 
-        }
 
+
+//        for (auto it : handles) {
+//          if (*it == object_to_print.cf_name)
+//            batch.Put(it, Slice(object_to_print.key), Slice(object_to_print.hash)); //parameters depend on the package
+//        }
+
+        /*
+         1) auto it : cf_names => it-odno imya. Hodim i sravnivayem poka
+         ne naydem sootvetstvie prishedhemu
+         2) pered ciklom postavit uint i = 0;? i++ vo vremya hozhdeniya
+         3) kokda nahli zapis po handles[i]
+         */
         while (!safe_output.try_lock()) {
           std::this_thread::sleep_for(std::chrono::milliseconds(
               masha_sleeps_seconds));
@@ -365,6 +377,7 @@ private:
         assert(s.ok());
       }
       delete db;
+      //log that it finished
     }
 
 public:
