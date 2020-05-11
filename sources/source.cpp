@@ -310,8 +310,12 @@ private:
 	    }
     }
 
-    void writing_output(){
-      make_db(out, cf_names); //cf_names_are_ready?
+    void writing_output() {
+      if (!cf_names_are_ready) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(
+              dima_sleeps_seconds));
+      }
+      make_db(out, cf_names); //cf_names_are_ready?                    |galochka|
       Options options;
       options.create_if_missing = true;
       DB* db;
@@ -321,8 +325,8 @@ private:
 
       std::vector<ColumnFamilyDescriptor> column_families;
       for (auto name : cf_names){
-        column_families.push_back(ColumnFamilyDescriptor(
-            name, ColumnFamilyOptions()));
+          column_families.push_back(ColumnFamilyDescriptor(
+              name, ColumnFamilyOptions()));
       }
 
       std::vector<ColumnFamilyHandle*> handles;
@@ -331,54 +335,68 @@ private:
 
 
       print_this object_to_print;
-      
-      while (!safe_output.try_lock()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(
-		        dima_sleeps_seconds));
+
+      bool empty_queue = true;
+      while (empty_queue) {
+          while (!safe_output.try_lock()) {
+              std::this_thread::sleep_for(
+                  std::chrono::milliseconds(dima_sleeps_seconds));
+          }
+          empty_queue = output_queue->empty();
+          safe_output.unlock();
       }
-      bool empty_queue = output_queue->empty();
-      safe_output.unlock();
 
       WriteBatch batch;
-      while (cf_names_are_ready && !empty_queue) { //hashing_finished
-        //I) continue
-        //II) std::this_thread::yield()
-        while (!safe_output.try_lock()) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(
-		          dima_sleeps_seconds));
-        }
-        object_to_print = output_queue->front();
-        output_queue->pop();
-        safe_output.unlock();
+      while (!hashing_finished && !empty_queue) { //hashing_finished   |galochka|
+      //I) continue
+      //II)  std::this_thread::yield()
+          while (!safe_output.try_lock()) {
+              std::this_thread::sleep_for(std::chrono::milliseconds(
+                  dima_sleeps_seconds));
+          }
+          object_to_print = output_queue->front();
+          output_queue->pop();
+          safe_output.unlock();
 
 
 //        for (auto it : handles) {
 //          if (*it == object_to_print.cf_name)
 //            batch.Put(it, Slice(object_to_print.key), Slice(object_to_print.hash)); //parameters depend on the package
 //        }
+          int i = 0;
+          for (auto column_family_name : cf_names) {
+              if (*column_family_name == object_to_print.cf_name) {
+                  batch.Put(handles[i], Slice(object_to_print.key), Slice(object_to_print.hash));
+              }
+              ++i;
+          }
 
-        /*
-         1) auto it : cf_names => it-odno imya. Hodim i sravnivayem poka
-         ne naydem sootvetstvie prishedhemu
-         2) pered ciklom postavit uint i = 0;? i++ vo vremya hozhdeniya
-         3) kokda nahli zapis po handles[i]
-         */
-        while (!safe_output.try_lock()) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(
-              masha_sleeps_seconds));
-        }
-        empty_queue = output_queue->empty();
-        safe_output.unlock();
+      /*
+       1) auto it : cf_names => it-odno imya. Hodim i sravnivayem poka |galochka|
+       ne naydem sootvetstvie prishedhemu                              |galochka|
+       2) pered ciklom postavit uint i = 0;? i++ vo vremya hozhdeniya  |galochka|
+       3) kokda nahli zapis po handles[i]                              |galochka|
+       */
+          while (!hashing_finished.load() && empty_queue) {
+              while (!safe_output.try_lock()) {
+                  std::this_thread::sleep_for(
+                      std::chrono::milliseconds(masha_sleeps_seconds));
+              }
+              empty_queue = output_queue->empty();
+              safe_output.unlock();
+          }
       }
       s = db->Write(WriteOptions(), &batch);
       assert(s.ok());
-      
+
       for (auto handle : handles) {
-        s = db->DestroyColumnFamilyHandle(handle);
-        assert(s.ok());
+          s = db->DestroyColumnFamilyHandle(handle);
+          assert(s.ok());
       }
       delete db;
-      //log that it finished
+    //log that it finished                                             |galochka|
+      ss << "End database done!!!!!!!!!!!!!!!!!!!!!!";
+      log_it();
     }
 
 public:
