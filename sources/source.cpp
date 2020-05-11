@@ -281,9 +281,6 @@ private:
 		    empty_queue = processing_queue->empty();
 		    safe_processing.unlock();
 	    }
-	    if (download_finished.load() && empty_queue){
-		    hashing_finished.store(true);
-	    }
 
 	    while (!safe_processing.try_lock()) {
 		    std::this_thread::sleep_for(std::chrono::milliseconds(
@@ -307,6 +304,10 @@ private:
 	    }
 	    output_queue->push(struct_after_hash);
 	    safe_output.unlock();
+	    
+	    if (download_finished.load() && empty_queue){
+		    hashing_finished.store(true);
+	    }
     }
 
     void writing_output(){
