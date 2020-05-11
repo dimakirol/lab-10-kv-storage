@@ -307,6 +307,8 @@ private:
 	    
 	    if (download_finished.load() && empty_queue){
 		    hashing_finished.store(true);
+		    ss << "Hashig is completed and/or queue is empty";
+                    log_it();
 	    }
     }
 
