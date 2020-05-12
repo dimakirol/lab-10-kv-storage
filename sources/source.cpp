@@ -2,8 +2,6 @@
 
 #include <header.hpp>
 
-#define KEY_SIZE 14
-#define VALUE_SIZE 30
 
 class RandomString {
 public:
@@ -15,14 +13,12 @@ public:
                 "1234567890";
         auto now = static_cast<unsigned int>(time(nullptr));
         randomizer = static_cast<uint64_t>(rand_r(&now) % alpha.length());
-        random_string.assign(alpha, 0, VALUE_SIZE);
+        random_string.assign(alpha, 0, value_size);
     }
 
     std::string SetRandomValue (int ThreadID) {
         randomizer += ThreadID;
         int64_t tmp_randomizer = randomizer;
-        //std::string random_string = alpha;
-        //random_string.assign(alpha, 0, VALUE_SIZE);
         random_string.erase(tmp_randomizer % random_string.size(), 1);
         random_string = random_string + alpha[tmp_randomizer % alpha.size()];
         return random_string;
@@ -106,7 +102,6 @@ public:
 
         processing_queue = new std::queue <hash_this>;
         output_queue = new std::queue <print_this>;
-//        init();
     }
     ~BD_Hasher(){
         delete processing_queue;
@@ -123,13 +118,11 @@ private:
 		DB::ListColumnFamilies(DBOptions(), name, &cf_names_);
 
 		std::vector<ColumnFamilyDescriptor> column_families;
-//		std::cout << "Column families:" << std::endl;
+
 		for (auto name : cf_names_){
-//			std::cout << name << std::endl;
 			column_families.push_back(ColumnFamilyDescriptor(
 					name, ColumnFamilyOptions()));
 		}
-//		std::cout << std::endl;
 		std::vector<ColumnFamilyHandle*> handles;
 		s = DB::Open(DBOptions(), name, column_families, &handles, &db);
 		assert(s.ok());
@@ -158,7 +151,6 @@ private:
 
     }
 	void make_db(std::string name, std::vector <std::string> &cf_names_){
-    	//open DB
 		Options options;
 		options.create_if_missing = true;
 		DB* db;
@@ -169,9 +161,6 @@ private:
 		ColumnFamilyHandle* cf;
 
 		for (auto column_family : cf_names_) {
-			// create column family
-//			ss << column_family;
-//			log_it();
 			if (column_family == "default")
 				continue;
 			s = db->CreateColumnFamily(ColumnFamilyOptions(),
@@ -181,7 +170,6 @@ private:
 		}
 
 		for (auto handle : handles) {
-			// close DB
 			s = db->DestroyColumnFamilyHandle(handle);
 			assert(s.ok());
 		}
@@ -202,31 +190,20 @@ private:
 		    BOOST_LOG_TRIVIAL(trace) << ss.str() << std::endl;
 		}
 		ss.str("");
-//		ss.clear();
-//    	std::string sm_str;
-//    	ss >> sm_str;
     }
     void downloading_notes(){
     	std::vector <hash_this> please_hash_it;
-		//open DB
 	    DB* db;
 	    Status s;
 		DB::ListColumnFamilies(DBOptions(), source, &cf_names);
 	    cf_names_are_ready.store(true);
 
 		std::vector<ColumnFamilyDescriptor> column_families;
-//		std::cout << "Column families:" << std::endl;
 
-//	    ss << "Column families:";
-//	    log_it();
 		for (auto name : cf_names){
-//			std::cout << name << std::endl;
-//			ss <<  name;
-//			log_it();
 			column_families.push_back(ColumnFamilyDescriptor(
 					name, ColumnFamilyOptions()));
 		}
-//		std::cout << std::endl;
 		std::vector<ColumnFamilyHandle*> handles;
 		s = DB::Open(DBOptions(), source, column_families, &handles, &db);
 		assert(s.ok());
@@ -238,29 +215,22 @@ private:
 		auto iterator_column_names = cf_names.begin();
 		uint32_t i = 0;
 		for(auto it : iterators) {
-//			std::cout << *iterator_column_names << std::endl << std::endl;
 			for (it->SeekToFirst(); it->Valid(); it->Next()) {
 				please_hash_it.push_back(hash_this(*iterator_column_names,
 						                it->key().data(),
 						              it->value().ToString()));
-//				std::cout << it->key().data() << ": "
-//				          << it->value().ToString()
-//				          << std::endl;
 			}
 			i++;
 			iterator_column_names++;
 			delete it;
 		}
-	    ss << "All key-value ";
-	    log_it();
-		// close db
+
 		for (auto handle : handles) {
 			s = db->DestroyColumnFamilyHandle(handle);
 			assert(s.ok());
 		}
 		delete db;
-	    ss << "All key-value paires succ!";
-	    log_it();
+
 		for (auto element : please_hash_it){
 			while (!safe_processing.try_lock()){
                 std::this_thread::sleep_for(std::chrono::milliseconds(
@@ -279,16 +249,9 @@ private:
 	    hash_this struct_before_hash;
 	    bool empty_queue = true;
 
-	    while (!download_finished)
-	    	std::this_thread::yield();
-//	    while (!empty_queue) {//!download_finished.load() && !empty_queue) {
-//		    while (!safe_processing.try_lock()){
-//			    std::this_thread::sleep_for(std::chrono::milliseconds(
-//					    masha_sleeps_seconds));
-//		    }
-//		    empty_queue = processing_queue->empty();
-//		    safe_processing.unlock();
-//	    }
+	    while (!download_finished) {
+		    std::this_thread::yield();
+	    }
 
 	    while (!safe_processing.try_lock()) {
 		    std::this_thread::sleep_for(std::chrono::milliseconds(
@@ -318,167 +281,83 @@ private:
 	    
 	    if (download_finished.load() && empty_queue){
 		    hashing_finished.store(true);
-		    ss << "Hashig is completed and/or queue is empty";
-                    log_it();
+		    ss << "Hashing is completed!";
+		    log_it();
 	    }
     }
 
     void writing_output() {
-      if (!cf_names_are_ready) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(
-              dima_sleeps_seconds));
-      }
-      make_db(out, cf_names); //cf_names_are_ready?                    |galochka|
-      Options options;
-      options.create_if_missing = true;
-      DB* db;
-      Status s;
-//      std::vector <std::string> cf_names;
-//      DB::ListColumnFamilies(DBOptions(), out, &cf_names);
+		if (!cf_names_are_ready) {
+		  std::this_thread::sleep_for(std::chrono::milliseconds(
+		      dima_sleeps_seconds));
+		}
+		make_db(out, cf_names);
+		Options options;
+		options.create_if_missing = true;
+		DB* db;
+		Status s;
 
-      std::vector<ColumnFamilyDescriptor> column_families;
-      for (auto name : cf_names){
-          column_families.push_back(ColumnFamilyDescriptor(
-              name, ColumnFamilyOptions()));
-      }
+		std::vector<ColumnFamilyDescriptor> column_families;
+		for (auto name : cf_names){
+		  column_families.push_back(ColumnFamilyDescriptor(
+		      name, ColumnFamilyOptions()));
+		}
 
-      std::vector<ColumnFamilyHandle*> handles;
-      s = DB::Open(DBOptions(), out, column_families, &handles, &db);
-      assert(s.ok());
+		std::vector<ColumnFamilyHandle*> handles;
+		s = DB::Open(DBOptions(), out, column_families, &handles, &db);
+		assert(s.ok());
 
+		print_this object_to_print;
 
-      print_this object_to_print;
+		bool empty_queue = true;
+		while (empty_queue) {
+		  while (!safe_output.try_lock()) {
+		      std::this_thread::sleep_for(
+		          std::chrono::milliseconds(dima_sleeps_seconds));
+		  }
+		  empty_queue = output_queue->empty();
+		  safe_output.unlock();
+		}
 
-      bool empty_queue = true;
-      while (empty_queue) {
-          while (!safe_output.try_lock()) {
-              std::this_thread::sleep_for(
-                  std::chrono::milliseconds(dima_sleeps_seconds));
-          }
-          empty_queue = output_queue->empty();
-          safe_output.unlock();
-      }
+		while (!(hashing_finished && empty_queue)) {
+		  while (!safe_output.try_lock()) {
+		      std::this_thread::sleep_for(std::chrono::milliseconds(
+		          dima_sleeps_seconds));
+		  }
+		  object_to_print = output_queue->front();
+		  output_queue->pop();
+		  safe_output.unlock();
 
-      WriteBatch batch;
-      while (!(hashing_finished && empty_queue)) { //hashing_finished   |galochka|
-      //I) continue
-      //II)  std::this_thread::yield()
-          while (!safe_output.try_lock()) {
-              std::this_thread::sleep_for(std::chrono::milliseconds(
-                  dima_sleeps_seconds));
-          }
-          object_to_print = output_queue->front();
-          output_queue->pop();
-          safe_output.unlock();
+		  int i = 0;
+		  for (auto column_family_name : cf_names) {
+		      if (column_family_name == object_to_print.cf_name) {
+		        s = db->Put(WriteOptions(), handles[i],
+		                Slice(object_to_print.key), Slice(object_to_print.hash));
+		        break;
+		      }
+		      ++i;
+		  }
+		  empty_queue = true;
+		  while (empty_queue) {
+		      empty_queue = output_queue->empty();
+		      std::cout << "Notes in process: " <<
+		                    output_queue->size() << std::endl;
+		      if(empty_queue){
+		        if (hashing_finished.load())
+		            break;
+		      }
+		  }
+		}
 
-
-//        for (auto it : handles) {
-//          if (*it == object_to_print.cf_name)
-//            batch.Put(it, Slice(object_to_print.key), Slice(object_to_print.hash)); //parameters depend on the package
-//        }
-          int i = 0;
-//	      std::cout << "huyeta" << std::endl;
-          for (auto column_family_name : cf_names) {
-              if (column_family_name == object_to_print.cf_name) {
-              	s = db->Put(WriteOptions(), handles[i],
-              			Slice(object_to_print.key), Slice(object_to_print.hash));
-//	              std::cout << column_family_name << " " << object_to_print.key
-//	                        << " " << object_to_print.hash << std::endl;
-              	break;
-
-                  //batch.Put(handles[i], Slice(object_to_print.key), Slice(object_to_print.hash));
-              }
-              ++i;
-          }
-
-      /*
-       1) auto it : cf_names => it-odno imya. Hodim i sravnivayem poka |galochka|
-       ne naydem sootvetstvie prishedhemu                              |galochka|
-       2) pered ciklom postavit uint i = 0;? i++ vo vremya hozhdeniya  |galochka|
-       3) kokda nahli zapis po handles[i]                              |galochka|
-       */
-	      empty_queue = true;
-          while (empty_queue) {
-//              while (!safe_output.try_lock()) {
-//                  std::this_thread::sleep_for(
-//                      std::chrono::milliseconds(masha_sleeps_seconds));
-//              }
-              empty_queue = output_queue->empty();
-	          std::cout << "Zaebal govna kusok! Rabotay suka! Ya spat` hochu(((" <<
-	                        output_queue -> size() << std::endl;
-	          if(empty_queue){
-	          	if (hashing_finished.load())
-	          		break;
-	          }
-//              safe_output.unlock();
-          }
-      }
-//      s = db->Write(WriteOptions(), &batch);
-//      assert(s.ok());
-
-      for (auto handle : handles) {
-          s = db->DestroyColumnFamilyHandle(handle);
-          assert(s.ok());
-      }
-      delete db;
-//      exit(666);
-    //log that it finished                                             |galochka|
-      ss << "End database done!!!!!!!!!!!!!!!!!!!!!!";
-      log_it();
+		for (auto handle : handles) {
+		  s = db->DestroyColumnFamilyHandle(handle);
+		  assert(s.ok());
+		}
+		delete db;
+		ss << "End database done!!!!!!!!!!!!!!!!!!!!!!";
+		log_it();
     }
 
-	
-    void print_db (const std::string &db_name) {
-        DB* db;
-        Status s;
-        std::vector<std::string> _cf_names;
-        DB::ListColumnFamilies(DBOptions(), db_name, &_cf_names);
-
-        std::vector<ColumnFamilyDescriptor> column_families;
-
-        ss << "Column families" << std::endl;
-        log_it();
-        for (auto name : _cf_names){
-          ss << name << std::endl;
-          log_it();
-          column_families.push_back(ColumnFamilyDescriptor(
-              name, ColumnFamilyOptions()));
-        }
-        std::vector<ColumnFamilyHandle*> handles;
-        s = DB::Open(DBOptions(), db_name, column_families, &handles, &db);
-        assert(s.ok());
-
-        ss << std::endl << std::endl << std::endl;
-        log_it();
-
-        std::vector<Iterator *> iterators;
-        s = db->NewIterators(ReadOptions(), handles, &iterators);
-        assert(s.ok());
-
-        auto iterator_column_names = _cf_names.begin();
-        uint32_t i = 0;
-        for (auto it : iterators) {
-            ss << *iterator_column_names << std::endl << std::endl;
-            log_it();
-            for (it->SeekToFirst(); it->Valid(); it->Next()) {
-                ss << it->key().data() << " "
-                      it->value().ToString() << std::endl;
-            log_it();
-            }
-            i++;
-            iterator_column_names++;
-            delete it;
-        }
-
-        for (auto handle : handles) {
-            s = db->DestroyColumnFamilyHandle(handle);
-            assert(s.ok());
-        }
-
-        delete db;
-    }
-	
-	
 public:
     void i_like_to_hash_it_hash_it(){
         try {
@@ -488,79 +367,31 @@ public:
 	        for (int i = 0; i < 7; ++i) {
 		        cf_names_.push_back(std::string("cf_" + std::to_string(i)));
 	        }
-//	        ss << "Creating........";
 	        make_db(source, cf_names_);
-//	        ss << "Filling........";
 	        feel_db(source);
-
 	        ss << "Database successfully created";
 	        log_it();
+
 
 	        ctpl::thread_pool working_threads(threads);
 
 	        working_threads.push(std::bind(&BD_Hasher::downloading_notes,
 	                                       this));
-//	        ss << "finishing...";
-//	        log_it();
-//	        while (!download_finished.load()){
-//	        	std::this_thread::yield();
-//	        }
-//            exit(0);
+
 	        working_threads.push(std::bind(&BD_Hasher::parsing_notes,
 	                                       this, &working_threads));
 	        writing_output();
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////
-		        DB* db;
-		        Status s;
-		        std::vector<std::string> _cf_names;
-		        DB::ListColumnFamilies(DBOptions(), out, &_cf_names);
 
-		        std::vector<ColumnFamilyDescriptor> column_families;
-
-		        std::cout << "Column families" << std::endl;
-		        for (auto name : _cf_names){
-			        std::cout << name << std::endl;
-			        column_families.push_back(ColumnFamilyDescriptor(
-					        name, ColumnFamilyOptions()));
-		        }
-		        std::vector<ColumnFamilyHandle*> handles;
-		        s = DB::Open(DBOptions(), out, column_families, &handles, &db);
-		        assert(s.ok());
-	        std::cout << std::endl << std::endl << std::endl;
-	        std::vector<Iterator *> iterators;
-	        s = db->NewIterators(ReadOptions(), handles, &iterators);
-	        assert(s.ok());
-std::cout << "Gavna kysok" << std::endl;
-	        auto iterator_column_names = _cf_names.begin();
-	        uint32_t i = 0;
-	        for (auto it : iterators) {
-			std::cout << *iterator_column_names << std::endl << std::endl;
-		        //log_it();
-		        for (it->SeekToFirst(); it->Valid(); it->Next()) {
-			        std::cout << it->key().data() <<
-			              it->value().ToString() << std::endl;
-			       //log_it();
-		        }
-		        i++;
-		        iterator_column_names++;
-		        delete it;
-	        }
-	        for (auto handle : handles) {
-		        s = db->DestroyColumnFamilyHandle(handle);
-		        assert(s.ok());
-	        }
-	        delete db;
-
+	        print_rezult(source, out);
 
         } catch (std::logic_error const& e){
             std::cout << e.what() << " was an error!";
         } catch (...){
             std::cout << "Unknown error! Ask those stupid coders:0";
         }
+
     }
-///////////////////////////////////////////////////////////////////////////////////////////////////
-*/
-		
+
 private:
 	std::string source;
     std::string log_level;
