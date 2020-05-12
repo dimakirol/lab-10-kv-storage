@@ -35,9 +35,9 @@ find_package(RocksDB CONFIG REQUIRED)
 add_library(10_lab STATIC
         ${CMAKE_CURRENT_SOURCE_DIR}/sources/source.cpp
         )
-add_executable(10_lab
-        ${CMAKE_CURRENT_SOURCE_DIR}/sources/source.cpp
-        )
+#add_executable(10_lab
+#        ${CMAKE_CURRENT_SOURCE_DIR}/sources/source.cpp
+#        )
 
 add_executable(tests
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test.cpp
