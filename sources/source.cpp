@@ -427,6 +427,58 @@ private:
       log_it();
     }
 
+	
+    void print_db (const std::string &db_name) {
+        DB* db;
+        Status s;
+        std::vector<std::string> _cf_names;
+        DB::ListColumnFamilies(DBOptions(), db_name, &_cf_names);
+
+        std::vector<ColumnFamilyDescriptor> column_families;
+
+        ss << "Column families" << std::endl;
+        log_it();
+        for (auto name : _cf_names){
+          ss << name << std::endl;
+          log_it();
+          column_families.push_back(ColumnFamilyDescriptor(
+              name, ColumnFamilyOptions()));
+        }
+        std::vector<ColumnFamilyHandle*> handles;
+        s = DB::Open(DBOptions(), db_name, column_families, &handles, &db);
+        assert(s.ok());
+
+        ss << std::endl << std::endl << std::endl;
+        log_it();
+
+        std::vector<Iterator *> iterators;
+        s = db->NewIterators(ReadOptions(), handles, &iterators);
+        assert(s.ok());
+
+        auto iterator_column_names = _cf_names.begin();
+        uint32_t i = 0;
+        for (auto it : iterators) {
+            ss << *iterator_column_names << std::endl << std::endl;
+            log_it();
+            for (it->SeekToFirst(); it->Valid(); it->Next()) {
+                ss << it->key().data() << " "
+                      it->value().ToString() << std::endl;
+            log_it();
+            }
+            i++;
+            iterator_column_names++;
+            delete it;
+        }
+
+        for (auto handle : handles) {
+            s = db->DestroyColumnFamilyHandle(handle);
+            assert(s.ok());
+        }
+
+        delete db;
+    }
+	
+	
 public:
     void i_like_to_hash_it_hash_it(){
         try {
@@ -457,7 +509,7 @@ public:
 	        working_threads.push(std::bind(&BD_Hasher::parsing_notes,
 	                                       this, &working_threads));
 	        writing_output();
-
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////
 		        DB* db;
 		        Status s;
 		        std::vector<std::string> _cf_names;
@@ -506,7 +558,9 @@ std::cout << "Gavna kysok" << std::endl;
             std::cout << "Unknown error! Ask those stupid coders:0";
         }
     }
-
+///////////////////////////////////////////////////////////////////////////////////////////////////
+*/
+		
 private:
 	std::string source;
     std::string log_level;
