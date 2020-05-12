@@ -65,6 +65,7 @@ struct hash_this{
         value = std::string("");
     }
 	hash_this(std::string _cf_name, std::string _key, std::string _value){
+		cf_name = _cf_name;
         key = _key;
         value = _value;
     }
@@ -75,8 +76,9 @@ struct hash_this{
 
 struct print_this{
 	print_this(){
+		cf_name = std::string("");
         key = std::string("");
-        hash = nullptr;
+        hash = std::string("");
     }
 	print_this(std::string _cf_name, std::string _key, std::string _hash){
 		cf_name = _cf_name;
@@ -155,7 +157,7 @@ private:
 		delete db;
 
     }
-	void make_db(std::string name, std::vector <std::string> cf_names_){
+	void make_db(std::string name, std::vector <std::string> &cf_names_){
     	//open DB
 		Options options;
 		options.create_if_missing = true;
@@ -170,6 +172,8 @@ private:
 			// create column family
 //			ss << column_family;
 //			log_it();
+			if (column_family == "default")
+				continue;
 			s = db->CreateColumnFamily(ColumnFamilyOptions(),
 			                           column_family, &cf);
 			assert(s.ok());
@@ -247,14 +251,16 @@ private:
 			iterator_column_names++;
 			delete it;
 		}
-
+	    ss << "All key-value ";
+	    log_it();
 		// close db
 		for (auto handle : handles) {
 			s = db->DestroyColumnFamilyHandle(handle);
 			assert(s.ok());
 		}
 		delete db;
-
+	    ss << "All key-value paires succ!";
+	    log_it();
 		for (auto element : please_hash_it){
 			while (!safe_processing.try_lock()){
                 std::this_thread::sleep_for(std::chrono::milliseconds(
@@ -273,14 +279,16 @@ private:
 	    hash_this struct_before_hash;
 	    bool empty_queue = true;
 
-	    while (!download_finished.load() && !empty_queue) {
-		    while (!safe_processing.try_lock()){
-			    std::this_thread::sleep_for(std::chrono::milliseconds(
-					    masha_sleeps_seconds));
-		    }
-		    empty_queue = processing_queue->empty();
-		    safe_processing.unlock();
-	    }
+	    while (!download_finished)
+	    	std::this_thread::yield();
+//	    while (!empty_queue) {//!download_finished.load() && !empty_queue) {
+//		    while (!safe_processing.try_lock()){
+//			    std::this_thread::sleep_for(std::chrono::milliseconds(
+//					    masha_sleeps_seconds));
+//		    }
+//		    empty_queue = processing_queue->empty();
+//		    safe_processing.unlock();
+//	    }
 
 	    while (!safe_processing.try_lock()) {
 		    std::this_thread::sleep_for(std::chrono::milliseconds(
@@ -288,10 +296,13 @@ private:
 	    }
 	    struct_before_hash = processing_queue->front();
 	    processing_queue->pop();
+	    empty_queue = processing_queue->empty();
 	    safe_processing.unlock();
 
-	    parsing_threads->push(std::bind(&BD_Hasher::parsing_notes,
-	                                    this, parsing_threads));
+	    if (!empty_queue) {
+		    parsing_threads->push(std::bind(&BD_Hasher::parsing_notes,
+		                                    this, parsing_threads));
+	    }
 
 	    str_before_hash = struct_before_hash.key + struct_before_hash.value;
 	    picosha2::hash256_hex_string(str_before_hash, str_after_hash);
@@ -349,7 +360,7 @@ private:
       }
 
       WriteBatch batch;
-      while (!hashing_finished && !empty_queue) { //hashing_finished   |galochka|
+      while (!(hashing_finished && empty_queue)) { //hashing_finished   |galochka|
       //I) continue
       //II)  std::this_thread::yield()
           while (!safe_output.try_lock()) {
@@ -366,9 +377,16 @@ private:
 //            batch.Put(it, Slice(object_to_print.key), Slice(object_to_print.hash)); //parameters depend on the package
 //        }
           int i = 0;
+//	      std::cout << "huyeta" << std::endl;
           for (auto column_family_name : cf_names) {
-              if (*column_family_name == object_to_print.cf_name) {
-                  batch.Put(handles[i], Slice(object_to_print.key), Slice(object_to_print.hash));
+              if (column_family_name == object_to_print.cf_name) {
+              	s = db->Put(WriteOptions(), handles[i],
+              			Slice(object_to_print.key), Slice(object_to_print.hash));
+//	              std::cout << column_family_name << " " << object_to_print.key
+//	                        << " " << object_to_print.hash << std::endl;
+              	break;
+
+                  //batch.Put(handles[i], Slice(object_to_print.key), Slice(object_to_print.hash));
               }
               ++i;
           }
@@ -379,23 +397,31 @@ private:
        2) pered ciklom postavit uint i = 0;? i++ vo vremya hozhdeniya  |galochka|
        3) kokda nahli zapis po handles[i]                              |galochka|
        */
-          while (!hashing_finished.load() && empty_queue) {
-              while (!safe_output.try_lock()) {
-                  std::this_thread::sleep_for(
-                      std::chrono::milliseconds(masha_sleeps_seconds));
-              }
+	      empty_queue = true;
+          while (empty_queue) {
+//              while (!safe_output.try_lock()) {
+//                  std::this_thread::sleep_for(
+//                      std::chrono::milliseconds(masha_sleeps_seconds));
+//              }
               empty_queue = output_queue->empty();
-              safe_output.unlock();
+	          std::cout << "Zaebal govna kusok! Rabotay suka! Ya spat` hochu(((" <<
+	                        output_queue -> size() << std::endl;
+	          if(empty_queue){
+	          	if (hashing_finished.load())
+	          		break;
+	          }
+//              safe_output.unlock();
           }
       }
-      s = db->Write(WriteOptions(), &batch);
-      assert(s.ok());
+//      s = db->Write(WriteOptions(), &batch);
+//      assert(s.ok());
 
       for (auto handle : handles) {
           s = db->DestroyColumnFamilyHandle(handle);
           assert(s.ok());
       }
       delete db;
+//      exit(666);
     //log that it finished                                             |galochka|
       ss << "End database done!!!!!!!!!!!!!!!!!!!!!!";
       log_it();
@@ -406,10 +432,10 @@ public:
         try {
 	        ss << "Starting........";
 	        log_it();
-        	std::vector <std::string> cf_names_;
-        	for (int i = 0; i < 7; ++i){
+	        std::vector<std::string> cf_names_;
+	        for (int i = 0; i < 7; ++i) {
 		        cf_names_.push_back(std::string("cf_" + std::to_string(i)));
-        	}
+	        }
 //	        ss << "Creating........";
 	        make_db(source, cf_names_);
 //	        ss << "Filling........";
@@ -418,19 +444,62 @@ public:
 	        ss << "Database successfully created";
 	        log_it();
 
-            ctpl::thread_pool working_threads(threads);
+	        ctpl::thread_pool working_threads(threads);
 
-            working_threads.push(std::bind(&BD_Hasher::downloading_notes,
-                                           this));
-	        ss << "finishing...";
-	        log_it();
-	        while (!download_finished.load()){
-	        	std::this_thread::yield();
+	        working_threads.push(std::bind(&BD_Hasher::downloading_notes,
+	                                       this));
+//	        ss << "finishing...";
+//	        log_it();
+//	        while (!download_finished.load()){
+//	        	std::this_thread::yield();
+//	        }
+//            exit(0);
+	        working_threads.push(std::bind(&BD_Hasher::parsing_notes,
+	                                       this, &working_threads));
+	        writing_output();
+
+		        DB* db;
+		        Status s;
+		        std::vector<std::string> _cf_names;
+		        DB::ListColumnFamilies(DBOptions(), out, &_cf_names);
+
+		        std::vector<ColumnFamilyDescriptor> column_families;
+
+		        std::cout << "Column families" << std::endl;
+		        for (auto name : _cf_names){
+			        std::cout << name << std::endl;
+			        column_families.push_back(ColumnFamilyDescriptor(
+					        name, ColumnFamilyOptions()));
+		        }
+		        std::vector<ColumnFamilyHandle*> handles;
+		        s = DB::Open(DBOptions(), out, column_families, &handles, &db);
+		        assert(s.ok());
+	        std::cout << std::endl << std::endl << std::endl;
+	        std::vector<Iterator *> iterators;
+	        s = db->NewIterators(ReadOptions(), handles, &iterators);
+	        assert(s.ok());
+std::cout << "Gavna kysok" << std::endl;
+	        auto iterator_column_names = _cf_names.begin();
+	        uint32_t i = 0;
+	        for (auto it : iterators) {
+			std::cout << *iterator_column_names << std::endl << std::endl;
+		        //log_it();
+		        for (it->SeekToFirst(); it->Valid(); it->Next()) {
+			        std::cout << it->key().data() <<
+			              it->value().ToString() << std::endl;
+			       //log_it();
+		        }
+		        i++;
+		        iterator_column_names++;
+		        delete it;
 	        }
-            exit(0);
-            working_threads.push(std::bind(&BD_Hasher::parsing_notes,
-                                           this, &working_threads));
-            writing_output();
+	        for (auto handle : handles) {
+		        s = db->DestroyColumnFamilyHandle(handle);
+		        assert(s.ok());
+	        }
+	        delete db;
+
+
         } catch (std::logic_error const& e){
             std::cout << e.what() << " was an error!";
         } catch (...){
