@@ -36,7 +36,7 @@ namespace Rocksdb = rocksdb;
 namespace po = boost::program_options;
 using namespace rocksdb;
 
-
+static const uint32_t cf_names_number = 7;
 static const uint32_t value_size = 30;
 static const uint32_t notes_number = rand()%17 + 3;
 static const uint32_t masha_sleeps_seconds = rand()%4 + 3;
