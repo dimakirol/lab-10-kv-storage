@@ -1,5 +1,8 @@
 # Лабораторная работа № 10
+[![Travis][build-badge]][build]
 
+[build-badge]: https://travis-ci.com/dimakirol/lab-10-kv-storage.svg?branch=master
+[build]: https://travis-ci.com/github/dimakirol/lab-10-kv-storage
 ## Задание
 
 Реализовать утилиту вычисления контрольной суммы записей **key-value** хранилища.<br />
