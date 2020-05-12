@@ -51,8 +51,10 @@ target_include_directories(tests
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
         )
 
-target_link_libraries(10_lab Boost::log Boost::thread)
-target_link_libraries(10_lab RocksDB::rocksdb Boost::program_options GTest::main tests)
+#target_link_libraries(10_lab Boost::log Boost::thread)
+#target_link_libraries(10_lab RocksDB::rocksdb Boost::program_options)
+
+target_link_libraries(10_lab Boost::log Boost::thread RocksDB::rocksdb Boost::program_options GTest::main tests)
 
 enable_testing()
 add_test(NAME unit_tests COMMAND tests)
