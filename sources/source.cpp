@@ -5,7 +5,6 @@
 
 class RandomString {
 public:
-//
     RandomString() {
         alpha =
         "abcdefghijklmnopqrstuvwxyz"
@@ -148,7 +147,6 @@ private:
             assert(s.ok());
         }
         delete db;
-//
     }
     void make_db(std::string name, std::vector <std::string> &cf_names_){
         Options options;
@@ -383,13 +381,11 @@ public:
             writing_output();
 
             print_rezult(source, out);
-//
         } catch (std::logic_error const& e){
             std::cout << e.what() << " was an error!";
         } catch (...){
             std::cout << "Unknown error! Ask those stupid coders:0";
         }
-//
     }
 
 private:
