@@ -20,8 +20,8 @@ project(10_lab)
 
 
 #find_package(Boost 1.72.0 REQUIRED COMPONENTS program_options coroutine log log_setup thread)
-#hunter_add_package(GTest)
-#find_package(GTest CONFIG REQUIRED)
+hunter_add_package(GTest)
+find_package(GTest CONFIG REQUIRED)
 
 
 hunter_add_package(Boost COMPONENTS program_options coroutine thread log)
@@ -32,38 +32,37 @@ find_package(Boost 1.70.0 COMPONENTS REQUIRED thread log_setup log program_optio
 hunter_add_package(rocksdb)
 find_package(RocksDB CONFIG REQUIRED)
 
-#add_library(10_lab STATIC
-#        ${CMAKE_CURRENT_SOURCE_DIR}/sources/source.cpp
-#        )
+add_library(10_lab STATIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/sources/source.cpp
+        )
 add_executable(10_lab
         ${CMAKE_CURRENT_SOURCE_DIR}/sources/source.cpp
         )
 
-#add_executable(tests
-#        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test.cpp
-#       )
+add_executable(tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test.cpp
+       )
 
 target_include_directories(10_lab
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
         )
 
-#target_include_directories(tests
-#        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
-#        )
+target_include_directories(tests
+        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+        )
 
-#target_link_libraries(tests GTest::main 10_lab RocksDB::rocksdb)
 target_link_libraries(10_lab Boost::log Boost::thread)
-target_link_libraries(10_lab RocksDB::rocksdb Boost::program_options)
+target_link_libraries(10_lab RocksDB::rocksdb Boost::program_options GTest::main tests)
 
-#enable_testing()
-#add_test(NAME unit_tests COMMAND tests)
+enable_testing()
+add_test(NAME unit_tests COMMAND tests)
 
-#if(BUILD_COVERAGE)
-#  set(ENABLE_COVERAGE ON CACHE BOOL "Enable coverage build." FORCE)
-#  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-#  find_package(codecov)
-#  add_coverage(10_lab)
-#  add_coverage(tests)
-#  list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/tests/*'")
-#  coverage_evaluate()
-#endif()
+if(BUILD_COVERAGE)
+  set(ENABLE_COVERAGE ON CACHE BOOL "Enable coverage build." FORCE)
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+  find_package(codecov)
+  add_coverage(10_lab)
+  add_coverage(tests)
+  list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/tests/*'")
+  coverage_evaluate()
+endif()
