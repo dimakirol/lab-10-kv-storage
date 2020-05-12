@@ -364,7 +364,7 @@ public:
 	        ss << "Starting........";
 	        log_it();
 	        std::vector<std::string> cf_names_;
-	        for (int i = 0; i < 7; ++i) {
+	        for (int i = 0; i < cf_names_number; ++i) {
 		        cf_names_.push_back(std::string("cf_" + std::to_string(i)));
 	        }
 	        make_db(source, cf_names_);
