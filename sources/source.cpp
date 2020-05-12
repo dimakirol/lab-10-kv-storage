@@ -41,7 +41,7 @@ struct Params{
         input = _input;
         log_level = _log_level;
         threads = _threads;
-        
+
         if (input.find("/") != std::string::npos){
             out.assign(input, 0, input.rfind("/") + 1);
         }
@@ -451,7 +451,7 @@ Params command_line_processor(int argc, char* argv[]){
         if (task_type == "hash") {
             desc.add(parse_desc);
             parsed = po::command_line_parser(argc,
-            argv).options(desc).positional(file_name).allow_unregistered().run();
+   argv).options(desc).positional(file_name).allow_unregistered().run();
             po::store(parsed, vm);
             po::notify(vm);
             Params cmd_params = parse_cmd(vm);
