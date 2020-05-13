@@ -53,7 +53,7 @@ target_include_directories(tests
 
 #target_link_libraries(10_lab Boost::log Boost::thread)
 #target_link_libraries(10_lab RocksDB::rocksdb Boost::program_options)
-#target_link_libraries(tests GTest::main 10_lab)
+target_link_libraries(tests GTest::main 10_lab)
 target_link_libraries(10_lab Boost::log Boost::thread RocksDB::rocksdb Boost::program_options)
 
 enable_testing()
